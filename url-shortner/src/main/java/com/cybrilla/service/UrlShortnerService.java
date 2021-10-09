@@ -8,10 +8,15 @@ import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.cybrilla.dao.UrlShortnerDao;
 import com.cybrilla.model.UrlPOJO;
+
+import net.bytebuddy.implementation.bytecode.Throw;
 
 @Service
 public class UrlShortnerService {
@@ -25,29 +30,45 @@ public class UrlShortnerService {
 	Long counter = 1L;
 	String base62 = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
-	public String saveUrl(UrlPOJO url) {
+	public String shortenUrl(UrlPOJO url) {
 		String returnUrl="";
 		if(validateUrl(url)) {
 			List<UrlPOJO> urlList = dao.findByUrl(em,url.getUrl());
-			List<UrlPOJO> shortUrlList = dao.findByShortUrl(em,url.getUrl());
-			if(urlList.size()==0 && shortUrlList.size()==0) {
+			if(urlList.size()==0) {
 				String shortUrl = encode(url.getUrl());
 				url.setShortURl(shortUrl);
 				dao.save(url);
 				returnUrl = url.getShortURl();
 			}
-			else if(shortUrlList.size()!=0){
-				  returnUrl = shortUrlList.get(0).getUrl();
-				//returnUrl="shortUrl exists";
-			}
-			else{
-				
+			else{	
 				  returnUrl = urlList.get(0).getShortURl();
-				//returnUrl="Url exists";
 			}
 		}
 		else {
-			returnUrl="Invalid URL.";
+			throw new ResponseStatusException(
+					  HttpStatus.BAD_REQUEST, "Invalid URL"
+					);
+		}
+		return returnUrl;
+	}
+	
+	public String getOriginalUrl(UrlPOJO url) {
+		String returnUrl="";
+		if(validateUrl(url)) {
+			List<UrlPOJO> shortUrlList = dao.findByShortUrl(em,url.getUrl());
+			if(shortUrlList.size()!=0) {
+			returnUrl = shortUrlList.get(0).getUrl();
+			}
+			else {
+				throw new ResponseStatusException(
+						  HttpStatus.NOT_FOUND, "URL not found"
+						);
+			}
+		}
+		else {
+			throw new ResponseStatusException(
+					  HttpStatus.BAD_REQUEST, "Invalid URL"
+					);
 		}
 		return returnUrl;
 	}
